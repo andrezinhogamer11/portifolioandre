@@ -819,10 +819,101 @@ const musicLibraryCount = document.querySelector("#music-library-count");
 const musicLibraryStatus = document.querySelector("#music-library-status");
 const musicTrackList = document.querySelector("#music-track-list");
 const musicUpload = document.querySelector("#music-upload");
+const musicPlayer = document.querySelector(".music-player");
+const musicDragHandle = document.querySelector("#music-drag-handle");
 const audioFileUrl = new URL(backgroundAudio.querySelector("source").getAttribute("src"), document.baseURI);
 let selectedMusicTrack = "default";
 let activeMusicObjectUrl = "";
 let musicTracks = [];
+
+function getClampedMusicPosition(left, top) {
+  const rect = musicPlayer.getBoundingClientRect();
+  return {
+    left: Math.min(Math.max(0, left), Math.max(0, window.innerWidth - rect.width)),
+    top: Math.min(Math.max(0, top), Math.max(0, window.innerHeight - rect.height)),
+  };
+}
+
+function setMusicPlayerPosition(left, top, persist = true) {
+  const position = getClampedMusicPosition(left, top);
+  musicPlayer.style.left = `${position.left}px`;
+  musicPlayer.style.top = `${position.top}px`;
+  musicPlayer.style.right = "auto";
+  musicPlayer.style.bottom = "auto";
+  if (persist) {
+    try {
+      localStorage.setItem("mardula-music-player-position", JSON.stringify(position));
+    } catch (error) {
+      console.error("Não foi possível salvar a posição do player.", error);
+    }
+  }
+}
+
+function restoreMusicPlayerPosition() {
+  try {
+    const savedPosition = JSON.parse(localStorage.getItem("mardula-music-player-position") ?? "null");
+    if (
+      savedPosition
+      && Number.isFinite(savedPosition.left)
+      && Number.isFinite(savedPosition.top)
+    ) {
+      setMusicPlayerPosition(savedPosition.left, savedPosition.top, false);
+    }
+  } catch (error) {
+    console.error("Não foi possível restaurar a posição do player.", error);
+  }
+}
+
+let musicDrag = null;
+musicDragHandle.addEventListener("pointerdown", (event) => {
+  if (event.button !== 0) return;
+  const rect = musicPlayer.getBoundingClientRect();
+  musicDrag = {
+    pointerId: event.pointerId,
+    offsetX: event.clientX - rect.left,
+    offsetY: event.clientY - rect.top,
+    startX: event.clientX,
+    startY: event.clientY,
+    moved: false,
+  };
+  musicDragHandle.setPointerCapture(event.pointerId);
+});
+
+musicDragHandle.addEventListener("pointermove", (event) => {
+  if (!musicDrag || musicDrag.pointerId !== event.pointerId) return;
+  if (!musicDrag.moved && Math.hypot(event.clientX - musicDrag.startX, event.clientY - musicDrag.startY) < 4) return;
+  musicDrag.moved = true;
+  musicPlayer.classList.add("is-dragging");
+  setMusicPlayerPosition(event.clientX - musicDrag.offsetX, event.clientY - musicDrag.offsetY);
+});
+
+function finishMusicDrag(event) {
+  if (!musicDrag || musicDrag.pointerId !== event.pointerId) return;
+  if (musicDragHandle.hasPointerCapture(event.pointerId)) musicDragHandle.releasePointerCapture(event.pointerId);
+  musicPlayer.classList.remove("is-dragging");
+  musicDrag = null;
+}
+
+musicDragHandle.addEventListener("pointerup", finishMusicDrag);
+musicDragHandle.addEventListener("pointercancel", finishMusicDrag);
+musicDragHandle.addEventListener("keydown", (event) => {
+  const rect = musicPlayer.getBoundingClientRect();
+  const step = event.shiftKey ? 30 : 10;
+  const movement = {
+    ArrowLeft: [-step, 0],
+    ArrowRight: [step, 0],
+    ArrowUp: [0, -step],
+    ArrowDown: [0, step],
+  }[event.key];
+  if (!movement) return;
+  event.preventDefault();
+  setMusicPlayerPosition(rect.left + movement[0], rect.top + movement[1]);
+});
+
+window.addEventListener("resize", () => {
+  const rect = musicPlayer.getBoundingClientRect();
+  setMusicPlayerPosition(rect.left, rect.top);
+});
 
 function getAudioErrorMessage() {
   if (selectedMusicTrack === "default" && window.location.protocol === "file:") {
@@ -1043,6 +1134,7 @@ if (window.location.protocol === "file:") {
 updateMusicButtons();
 renderMusicTrackList();
 initializeMusicLibrary();
+restoreMusicPlayerPosition();
 
 const contactLinks = {
   github: "https://github.com/andrezinhogamer11",

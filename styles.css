@@ -3586,6 +3586,29 @@ body {
   backdrop-filter: blur(12px);
 }
 
+.music-drag-handle {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.music-drag-handle:active {
+  cursor: grabbing;
+}
+
+.music-drag-handle:focus-visible {
+  outline: 1px solid var(--lime);
+  outline-offset: 4px;
+}
+
+.music-player.is-dragging {
+  transition: none;
+}
+
 .music-disc {
   width: 37px;
   height: 37px;
@@ -3822,6 +3845,10 @@ body {
   .music-disc {
     width: 32px;
     height: 32px;
+  }
+
+  .music-drag-handle {
+    gap: 7px;
   }
 
   .music-copy {

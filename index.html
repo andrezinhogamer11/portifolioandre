@@ -516,11 +516,13 @@
       <audio id="background-audio" loop preload="none">
         <source src="assets/musica-fundo.mp3" type="audio/mpeg" />
       </audio>
-      <span class="music-disc" aria-hidden="true">♪</span>
-      <span class="music-copy">
-        <span class="music-title">som de fundo</span>
-        <span class="music-status mono" id="music-status" aria-live="polite">som de fundo</span>
-      </span>
+      <div class="music-drag-handle" id="music-drag-handle" role="group" tabindex="0" aria-label="Mover player de música" title="Arraste para mover; use as setas do teclado">
+        <span class="music-disc" aria-hidden="true">♪</span>
+        <span class="music-copy">
+          <span class="music-title">som de fundo</span>
+          <span class="music-status mono" id="music-status" aria-live="polite">som de fundo</span>
+        </span>
+      </div>
       <button class="music-control" id="music-play" type="button" aria-label="Tocar música" title="Tocar música">
         <span aria-hidden="true">▶</span>
       </button>
