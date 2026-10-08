@@ -19,9 +19,64 @@
     <script src="script.js" defer></script>
   </head>
   <body>
-    <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+    <a class="skip-link" href="#desktop-icons">Pular para a área de trabalho</a>
 
-    <div class="site-window" aria-label="Portfólio de André Mardula Neto">
+    <main class="desktop" id="desktop" aria-label="Área de trabalho Mardula OS">
+      <div class="wallpaper-mark wallpaper-mark-one" aria-hidden="true">AM</div>
+      <div class="wallpaper-mark wallpaper-mark-two" aria-hidden="true">IDEIAS EM<br />MOVIMENTO</div>
+      <div class="wallpaper-orbit" aria-hidden="true"></div>
+
+      <header class="desktop-topbar">
+        <div class="os-brand"><span class="os-symbol">A<span>↗</span></span><span>MARDULA OS</span></div>
+        <p>um espaço para código, rabiscos e outras ideias.</p>
+        <span class="desktop-date mono" id="desktop-date"></span>
+      </header>
+
+      <nav class="desktop-icons" id="desktop-icons" aria-label="Aplicativos da área de trabalho">
+        <button class="desktop-icon" type="button" data-app="janelas">
+          <span class="app-icon icon-window"><span>▱</span></span><span>Janelas</span>
+        </button>
+        <button class="desktop-icon" type="button" data-app="sobre">
+          <span class="app-icon icon-about"><span>AM</span></span><span>Sobre mim</span>
+        </button>
+        <button class="desktop-icon" type="button" data-app="projetos">
+          <span class="app-icon icon-projects"><span>▣</span></span><span>Meus Projetos</span>
+        </button>
+        <button class="desktop-icon" type="button" data-app="habilidades">
+          <span class="app-icon icon-skills"><span>&lt;/&gt;</span></span><span>Habilidades</span>
+        </button>
+        <button class="desktop-icon" type="button" data-app="curriculo">
+          <span class="app-icon icon-resume"><span>CV</span></span><span>Currículo</span>
+        </button>
+        <button class="desktop-icon" type="button" data-app="contato">
+          <span class="app-icon icon-contact"><span>↗</span></span><span>Contato</span>
+        </button>
+        <button class="desktop-icon" type="button" data-app="laboratorio">
+          <span class="app-icon icon-lab"><span>✳</span></span><span>Laboratório</span>
+        </button>
+      </nav>
+
+      <section class="desktop-windows" id="desktop-windows" aria-label="Janelas abertas"></section>
+
+      <footer class="taskbar">
+        <button class="start-button" id="start-button" type="button" aria-label="Abrir menu de aplicativos" aria-expanded="false">
+          <span>A</span>
+        </button>
+        <span class="taskbar-divider"></span>
+        <div class="taskbar-apps" id="taskbar-apps" aria-label="Aplicativos abertos"></div>
+        <div class="taskbar-tray">
+          <span class="tray-signal" aria-label="Conectado">◉</span>
+          <span class="tray-volume" aria-label="Áudio">♫</span>
+          <time class="taskbar-clock mono" id="taskbar-clock"></time>
+        </div>
+      </footer>
+      <div class="start-menu" id="start-menu" hidden>
+        <p class="mono">APLICATIVOS</p>
+        <div class="start-menu-grid"></div>
+      </div>
+    </main>
+
+    <div class="site-window" aria-label="Portfólio de André Mardula Neto" hidden>
       <div class="window-chrome" aria-hidden="true">
         <span class="window-lights"><i></i><i></i><i></i></span>
         <span class="window-title mono">ANDRÉ MARDULA NETO / PORTFÓLIO</span>
