@@ -25,12 +25,28 @@
       <div class="wallpaper-mark wallpaper-mark-one" aria-hidden="true">AM</div>
       <div class="wallpaper-mark wallpaper-mark-two" aria-hidden="true">IDEIAS EM<br />MOVIMENTO</div>
       <div class="wallpaper-orbit" aria-hidden="true"></div>
+      <div class="desktop-wallpaper-image" id="desktop-wallpaper-image" aria-hidden="true"></div>
 
       <header class="desktop-topbar">
         <div class="os-brand"><span class="os-symbol">A<span>↗</span></span><span>MARDULA OS</span></div>
         <p>um espaço para código, rabiscos e outras ideias.</p>
         <span class="desktop-date mono" id="desktop-date"></span>
       </header>
+
+      <aside class="desktop-clock-widget" aria-label="Relógio analógico">
+        <div class="analog-clock" aria-hidden="true">
+          <span class="clock-mark mark-12">12</span>
+          <span class="clock-mark mark-3">3</span>
+          <span class="clock-mark mark-6">6</span>
+          <span class="clock-mark mark-9">9</span>
+          <span class="clock-hand clock-hour" id="clock-hour-hand"></span>
+          <span class="clock-hand clock-minute" id="clock-minute-hand"></span>
+          <span class="clock-hand clock-second" id="clock-second-hand"></span>
+          <span class="clock-pin"></span>
+        </div>
+        <time class="widget-time" id="widget-time"></time>
+        <span class="widget-caption mono">hora local</span>
+      </aside>
 
       <nav class="desktop-icons" id="desktop-icons" aria-label="Aplicativos da área de trabalho">
         <button class="desktop-icon" type="button" data-app="janelas">
@@ -54,6 +70,9 @@
         <button class="desktop-icon" type="button" data-app="laboratorio">
           <span class="app-icon icon-lab"><span>✳</span></span><span>Laboratório</span>
         </button>
+        <button class="desktop-icon" type="button" data-app="imagens">
+          <span class="app-icon icon-gallery"><span>▧</span></span><span>Imagens</span>
+        </button>
       </nav>
 
       <section class="desktop-windows" id="desktop-windows" aria-label="Janelas abertas"></section>
@@ -67,14 +86,40 @@
         <div class="taskbar-tray">
           <span class="tray-signal" aria-label="Conectado">◉</span>
           <span class="tray-volume" aria-label="Áudio">♫</span>
-          <time class="taskbar-clock mono" id="taskbar-clock"></time>
+          <button class="taskbar-clock" id="clock-button" type="button" aria-label="Abrir calendário" aria-expanded="false" aria-controls="clock-calendar">
+            <time class="clock-time mono" id="taskbar-clock"></time>
+            <span class="clock-date mono" id="taskbar-date"></span>
+          </button>
         </div>
       </footer>
+      <section class="clock-calendar" id="clock-calendar" aria-label="Calendário" hidden>
+        <div class="calendar-heading">
+          <button class="calendar-nav" id="calendar-previous" type="button" aria-label="Mês anterior">‹</button>
+          <strong id="calendar-month"></strong>
+          <button class="calendar-nav" id="calendar-next" type="button" aria-label="Próximo mês">›</button>
+        </div>
+        <div class="calendar-grid" id="calendar-grid" role="grid" aria-label="Dias do mês"></div>
+        <button class="calendar-today mono" id="calendar-today" type="button">voltar para hoje</button>
+      </section>
       <div class="start-menu" id="start-menu" hidden>
         <p class="mono">APLICATIVOS</p>
         <div class="start-menu-grid"></div>
       </div>
     </main>
+
+    <dialog class="image-viewer" id="image-viewer" aria-labelledby="viewer-title">
+      <div class="viewer-chrome">
+        <span class="mono" id="viewer-title">VISUALIZADOR DE IMAGENS</span>
+        <button class="viewer-close" id="viewer-close" type="button" aria-label="Fechar imagem">×</button>
+      </div>
+      <div class="viewer-canvas">
+        <img id="viewer-image" alt="" />
+      </div>
+      <div class="viewer-footer">
+        <p id="viewer-caption"></p>
+        <button class="viewer-wallpaper-button" id="viewer-wallpaper" type="button">usar como wallpaper</button>
+      </div>
+    </dialog>
 
     <div class="site-window" aria-label="Portfólio de André Mardula Neto" hidden>
       <div class="window-chrome" aria-hidden="true">
@@ -482,6 +527,25 @@
       <button class="music-control music-mute" id="music-mute" type="button" aria-label="Mutar música" aria-pressed="false" title="Mutar música">
         <span aria-hidden="true">♫</span>
       </button>
+      <button class="music-control music-library-toggle" id="music-library-toggle" type="button" aria-label="Abrir biblioteca de músicas" aria-expanded="false" aria-controls="music-library">
+        <span aria-hidden="true">＋</span>
+      </button>
+      <section class="music-library" id="music-library" aria-label="Biblioteca de músicas" hidden>
+        <div class="music-library-heading">
+          <div>
+            <span class="mono">SUA PLAYLIST</span>
+            <strong>Biblioteca de músicas</strong>
+          </div>
+          <span class="music-library-count mono" id="music-library-count">1 faixa</span>
+        </div>
+        <p class="music-library-hint">Importe arquivos de áudio do seu dispositivo. Eles ficam salvos neste navegador.</p>
+        <label class="music-import-button">
+          <span aria-hidden="true">＋</span> importar músicas
+          <input id="music-upload" type="file" accept="audio/*" multiple />
+        </label>
+        <p class="music-library-status mono" id="music-library-status" aria-live="polite">escolha uma faixa para ouvir</p>
+        <div class="music-track-list" id="music-track-list" role="group" aria-label="Faixas disponíveis"></div>
+      </section>
     </aside>
   </body>
 </html>

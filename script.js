@@ -28,8 +28,27 @@ const taskbarApps = document.querySelector("#taskbar-apps");
 const startButton = document.querySelector("#start-button");
 const startMenu = document.querySelector("#start-menu");
 const startMenuGrid = document.querySelector(".start-menu-grid");
+const wallpaperImageLayer = document.querySelector("#desktop-wallpaper-image");
+const mediaGalleryAssets = [
+  { id: "desenho-personagem", name: "Desenho · personagem", src: "assets/desenho-personagem.jpg", description: "Ilustração de personagem" },
+  { id: "estudo-visual-player", name: "Estudo visual · player", src: "assets/estudo-visual-player.png", description: "Estudo visual de player de música" },
+  { id: "ideia-personagem-01", name: "Estudo · ideia 01", src: "assets/ideia-personagem-01.jpg", description: "Primeiro estudo a lápis do personagem" },
+  { id: "ideia-personagem-02", name: "Estudo · ideia 02", src: "assets/ideia-personagem-02.jpg", description: "Segundo estudo a lápis do personagem" },
+  { id: "ideia-personagem-03", name: "Estudo · ideia 03", src: "assets/ideia-personagem-03.jpg", description: "Terceiro estudo a lápis do personagem" },
+];
+const wallpaperPresets = [
+  { id: "graphite", name: "Grafite", description: "O mural original" },
+  { id: "twilight", name: "Fim de tarde", description: "Violeta e coral" },
+  { id: "meadow", name: "Verde ácido", description: "Verde e carvão" },
+  { id: "blueprint", name: "Blueprint", description: "Azul de sketchbook" },
+];
 const appWindows = new Map();
+const imageObjectUrls = new Map();
 let highestWindow = 10;
+let mediaDatabasePromise;
+let currentViewerImage;
+let calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let activeWallpaperChoice = "preset:graphite";
 
 const applications = [
   { id: "janelas", title: "Janelas", glyph: "▱", description: "Bem-vindo ao meu espaço digital.", section: "#inicio" },
@@ -39,6 +58,7 @@ const applications = [
   { id: "curriculo", title: "Currículo", glyph: "CV", description: "Minha trajetória de estudante.", custom: "curriculo" },
   { id: "contato", title: "Contato", glyph: "↗", description: "Canais para trocar uma ideia.", section: "#contato" },
   { id: "laboratorio", title: "Laboratório", glyph: "✳", description: "Um pequeno gerador de ideias.", custom: "laboratorio" },
+  { id: "imagens", title: "Imagens", glyph: "▧", description: "Abra imagens e personalize o wallpaper.", custom: "imagens" },
 ];
 
 const customApplicationContent = {
@@ -82,6 +102,21 @@ const customApplicationContent = {
         <button class="idea-button" id="idea-button" type="button">misturar referências <span aria-hidden="true">↗</span></button>
       </div>
     </div>`,
+  imagens: `
+    <div class="desktop-custom image-gallery-app">
+      <p class="app-window-kicker">08 / galeria e personalização</p>
+      <h2>Seu espaço,<br /><em>seu wallpaper.</em></h2>
+      <p>Escolha um visual para a área de trabalho, abra uma imagem da galeria ou importe arquivos do seu dispositivo. As imagens ficam salvas neste navegador.</p>
+      <div class="wallpaper-choices" role="group" aria-label="Wallpapers predefinidos">
+        ${wallpaperPresets.map((preset) => `<button class="wallpaper-choice" type="button" data-preset="${preset.id}"><span class="wallpaper-preview wallpaper-preview-${preset.id}"></span><span><strong>${preset.name}</strong><small>${preset.description}</small></span><i aria-hidden="true">✓</i></button>`).join("")}
+      </div>
+      <div class="gallery-toolbar">
+        <div><strong>Imagens</strong><span class="gallery-count mono" id="gallery-count"></span></div>
+        <label class="image-upload-button">＋ importar imagens<input id="image-upload" type="file" accept="image/*" multiple /></label>
+      </div>
+      <p class="gallery-status mono" id="gallery-status" aria-live="polite">imagens do sketchbook</p>
+      <div class="image-gallery-grid" id="image-gallery-grid"></div>
+    </div>`,
 };
 
 const ideaPrompts = [
@@ -94,15 +129,301 @@ const ideaPrompts = [
 
 function updateClock() {
   const now = new Date();
-  document.querySelector("#taskbar-clock").textContent = new Intl.DateTimeFormat("pt-BR", {
+  const time = new Intl.DateTimeFormat("pt-BR", {
     hour: "2-digit",
     minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
   }).format(now);
-  document.querySelector("#desktop-date").textContent = new Intl.DateTimeFormat("pt-BR", {
-    weekday: "short",
+  const date = new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
-    month: "short",
+    month: "2-digit",
+    year: "numeric",
   }).format(now);
+  const taskbarClock = document.querySelector("#taskbar-clock");
+  taskbarClock.dateTime = now.toISOString();
+  taskbarClock.textContent = time;
+  document.querySelector("#taskbar-date").textContent = date;
+  document.querySelector("#desktop-date").textContent = new Intl.DateTimeFormat("pt-BR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(now);
+  document.querySelector("#widget-time").textContent = time.slice(0, 5);
+  document.querySelector("#clock-hour-hand").style.transform = `rotate(${(now.getHours() % 12) * 30 + now.getMinutes() * 0.5}deg)`;
+  document.querySelector("#clock-minute-hand").style.transform = `rotate(${now.getMinutes() * 6 + now.getSeconds() * 0.1}deg)`;
+  document.querySelector("#clock-second-hand").style.transform = `rotate(${now.getSeconds() * 6}deg)`;
+}
+
+function renderCalendar() {
+  const monthLabel = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(calendarMonth);
+  document.querySelector("#calendar-month").textContent = monthLabel;
+  const grid = document.querySelector("#calendar-grid");
+  grid.replaceChildren();
+  ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"].forEach((label) => {
+    const heading = document.createElement("span");
+    heading.className = "calendar-weekday";
+    heading.setAttribute("role", "columnheader");
+    heading.textContent = label;
+    grid.append(heading);
+  });
+
+  const firstDay = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
+  const startOffset = (firstDay.getDay() + 6) % 7;
+  const startDate = new Date(firstDay);
+  startDate.setDate(firstDay.getDate() - startOffset);
+  const today = new Date();
+
+  for (let dayIndex = 0; dayIndex < 42; dayIndex += 1) {
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + dayIndex);
+    const dayButton = document.createElement("button");
+    dayButton.type = "button";
+    dayButton.className = "calendar-day";
+    dayButton.setAttribute("role", "gridcell");
+    dayButton.textContent = String(date.getDate());
+    if (date.getMonth() !== calendarMonth.getMonth()) dayButton.classList.add("is-outside");
+    if (date.toDateString() === today.toDateString()) {
+      dayButton.classList.add("is-today");
+      dayButton.setAttribute("aria-current", "date");
+    }
+    dayButton.setAttribute("aria-label", new Intl.DateTimeFormat("pt-BR", { dateStyle: "full" }).format(date));
+    dayButton.addEventListener("click", () => {
+      grid.querySelector(".is-selected")?.classList.remove("is-selected");
+      dayButton.classList.add("is-selected");
+    });
+    grid.append(dayButton);
+  }
+}
+
+function setCalendarOpen(isOpen) {
+  const calendar = document.querySelector("#clock-calendar");
+  const clockButton = document.querySelector("#clock-button");
+  calendar.hidden = !isOpen;
+  clockButton.setAttribute("aria-expanded", String(isOpen));
+  if (isOpen) renderCalendar();
+}
+
+function openMediaDatabase() {
+  if (mediaDatabasePromise) return mediaDatabasePromise;
+  mediaDatabasePromise = new Promise((resolve, reject) => {
+    if (!("indexedDB" in window)) {
+      reject(new Error("Este navegador não oferece armazenamento local de imagens."));
+      return;
+    }
+
+    const request = indexedDB.open("mardula-os-media", 2);
+    request.onupgradeneeded = () => {
+      const database = request.result;
+      if (!database.objectStoreNames.contains("images")) database.createObjectStore("images", { keyPath: "id" });
+      if (!database.objectStoreNames.contains("settings")) database.createObjectStore("settings", { keyPath: "key" });
+      if (!database.objectStoreNames.contains("audio")) database.createObjectStore("audio", { keyPath: "id" });
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error ?? new Error("Não foi possível abrir a galeria local."));
+    request.onblocked = () => reject(new Error("Feche as outras abas do portfólio e tente novamente."));
+  });
+  return mediaDatabasePromise;
+}
+
+async function mediaStoreRequest(storeName, mode, action) {
+  const database = await openMediaDatabase();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(storeName, mode);
+    const request = action(transaction.objectStore(storeName));
+    let result;
+    request.onsuccess = () => {
+      result = request.result;
+    };
+    request.onerror = () => reject(request.error ?? new Error("Não foi possível acessar a galeria."));
+    transaction.oncomplete = () => resolve(result);
+    transaction.onerror = () => reject(transaction.error ?? new Error("Não foi possível acessar a galeria."));
+    transaction.onabort = () => reject(transaction.error ?? new Error("A alteração na galeria foi cancelada."));
+  });
+}
+
+function getImageObjectUrl(record) {
+  if (!imageObjectUrls.has(record.id)) {
+    imageObjectUrls.set(record.id, URL.createObjectURL(record.blob));
+  }
+  return imageObjectUrls.get(record.id);
+}
+
+async function applyWallpaperChoice(choice) {
+  if (choice.startsWith("image:")) {
+    const imageId = choice.slice("image:".length);
+    const image = await mediaStoreRequest("images", "readonly", (store) => store.get(imageId));
+    if (!image) throw new Error("A imagem escolhida não está mais na galeria.");
+    wallpaperImageLayer.style.backgroundImage = `linear-gradient(rgba(18, 20, 19, 0.48), rgba(18, 20, 19, 0.58)), url("${getImageObjectUrl(image)}")`;
+    wallpaperImageLayer.hidden = false;
+    desktop.dataset.wallpaper = "custom";
+  } else if (choice.startsWith("asset:")) {
+    const image = mediaGalleryAssets.find((item) => item.id === choice.slice("asset:".length));
+    if (!image) throw new Error("A imagem escolhida não foi encontrada.");
+    wallpaperImageLayer.style.backgroundImage = `linear-gradient(rgba(18, 20, 19, 0.48), rgba(18, 20, 19, 0.58)), url("${image.src}")`;
+    wallpaperImageLayer.hidden = false;
+    desktop.dataset.wallpaper = "custom";
+  } else {
+    wallpaperImageLayer.hidden = true;
+    wallpaperImageLayer.style.backgroundImage = "";
+    desktop.dataset.wallpaper = choice.slice("preset:".length);
+  }
+  activeWallpaperChoice = choice;
+  updateWallpaperChoices();
+}
+
+async function saveWallpaperChoice(choice) {
+  await mediaStoreRequest("settings", "readwrite", (store) => store.put({ key: "wallpaper", value: choice }));
+  await applyWallpaperChoice(choice);
+}
+
+function updateWallpaperChoices() {
+  document.querySelectorAll(".wallpaper-choice").forEach((button) => {
+    const isSelected = button.dataset.preset === activeWallpaperChoice;
+    button.classList.toggle("is-selected", isSelected);
+    button.setAttribute("aria-pressed", String(isSelected));
+  });
+}
+
+async function restoreWallpaperChoice() {
+  let savedChoice = "preset:graphite";
+  try {
+    const setting = await mediaStoreRequest("settings", "readonly", (store) => store.get("wallpaper"));
+    if (setting?.value) savedChoice = setting.value;
+    await applyWallpaperChoice(savedChoice);
+  } catch (error) {
+    console.error("Não foi possível restaurar o wallpaper salvo.", error);
+    activeWallpaperChoice = "preset:graphite";
+    desktop.dataset.wallpaper = "graphite";
+    wallpaperImageLayer.hidden = true;
+  }
+}
+
+function openImageViewer(image) {
+  currentViewerImage = image;
+  const imageUrl = image.blob ? getImageObjectUrl(image) : image.src;
+  const viewerImage = document.querySelector("#viewer-image");
+  viewerImage.src = imageUrl;
+  viewerImage.alt = image.description ?? image.name;
+  document.querySelector("#viewer-caption").textContent = image.name;
+  document.querySelector("#viewer-wallpaper").disabled = false;
+  document.querySelector("#viewer-wallpaper").dataset.wallpaper = `${image.blob ? "image" : "asset"}:${image.id}`;
+  const viewer = document.querySelector("#image-viewer");
+  if (!viewer.open) viewer.showModal();
+}
+
+function createImageCard(image) {
+  const card = document.createElement("article");
+  card.className = "image-gallery-card";
+  const source = image.blob ? getImageObjectUrl(image) : image.src;
+
+  const preview = document.createElement("button");
+  preview.className = "image-preview";
+  preview.type = "button";
+  preview.setAttribute("aria-label", `Abrir imagem: ${image.name}`);
+  const thumbnail = document.createElement("img");
+  thumbnail.src = source;
+  thumbnail.alt = "";
+  thumbnail.loading = "lazy";
+  preview.append(thumbnail);
+  preview.addEventListener("click", () => openImageViewer(image));
+
+  const details = document.createElement("div");
+  details.className = "image-card-details";
+  const title = document.createElement("span");
+  title.textContent = image.name;
+  const actions = document.createElement("div");
+  actions.className = "image-card-actions";
+
+  const viewButton = document.createElement("button");
+  viewButton.type = "button";
+  viewButton.textContent = "abrir";
+  viewButton.addEventListener("click", () => openImageViewer(image));
+
+  const wallpaperButton = document.createElement("button");
+  wallpaperButton.type = "button";
+  wallpaperButton.textContent = "wallpaper";
+  wallpaperButton.addEventListener("click", async () => {
+    const status = card.closest(".image-gallery-app").querySelector("#gallery-status");
+    try {
+      await saveWallpaperChoice(`${image.blob ? "image" : "asset"}:${image.id}`);
+      status.textContent = `${image.name}: wallpaper aplicado`;
+    } catch (error) {
+      console.error("Não foi possível aplicar a imagem como wallpaper.", error);
+      status.textContent = error.message;
+    }
+  });
+
+  actions.append(viewButton, wallpaperButton);
+  details.append(title, actions);
+  card.append(preview, details);
+  return card;
+}
+
+async function populateImageGallery(windowElement) {
+  const gallery = windowElement.querySelector("#image-gallery-grid");
+  const count = windowElement.querySelector("#gallery-count");
+  const status = windowElement.querySelector("#gallery-status");
+  const fileInput = windowElement.querySelector("#image-upload");
+  if (!gallery || gallery.dataset.initialized === "true") return;
+  gallery.dataset.initialized = "true";
+
+  async function refreshGallery() {
+    const savedImages = await mediaStoreRequest("images", "readonly", (store) => store.getAll());
+    gallery.replaceChildren(...mediaGalleryAssets.map(createImageCard), ...savedImages.map(createImageCard));
+    count.textContent = `${mediaGalleryAssets.length + savedImages.length} itens`;
+    updateWallpaperChoices();
+  }
+
+  try {
+    await refreshGallery();
+    status.textContent = "escolha uma imagem ou wallpaper";
+  } catch (error) {
+    console.error("Não foi possível carregar as imagens salvas.", error);
+    status.textContent = error.message;
+  }
+
+  windowElement.querySelectorAll(".wallpaper-choice").forEach((button) => {
+    button.addEventListener("click", async () => {
+      try {
+        await saveWallpaperChoice(`preset:${button.dataset.preset}`);
+        status.textContent = `wallpaper “${button.querySelector("strong").textContent}” aplicado`;
+      } catch (error) {
+        console.error("Não foi possível trocar o wallpaper.", error);
+        status.textContent = error.message;
+      }
+    });
+  });
+
+  fileInput.addEventListener("change", async () => {
+    const selectedFiles = [...fileInput.files];
+    if (!selectedFiles.length) return;
+    const validFiles = selectedFiles.filter((file) => file.type.startsWith("image/"));
+    if (validFiles.length !== selectedFiles.length) {
+      status.textContent = "selecione apenas arquivos de imagem";
+      fileInput.value = "";
+      return;
+    }
+    try {
+      for (const file of validFiles) {
+        await mediaStoreRequest("images", "readwrite", (store) => store.put({
+          id: crypto.randomUUID(),
+          name: file.name,
+          description: file.name,
+          blob: file,
+          addedAt: Date.now(),
+        }));
+      }
+      await refreshGallery();
+      status.textContent = `${validFiles.length} imagem(ns) adicionada(s) à galeria`;
+    } catch (error) {
+      console.error("Não foi possível importar as imagens.", error);
+      status.textContent = error.message;
+    } finally {
+      fileInput.value = "";
+    }
+  });
 }
 
 function setStartMenuOpen(isOpen) {
@@ -291,6 +612,7 @@ function openApplication(applicationId) {
     });
   }
 
+  if (application.id === "imagens") populateImageGallery(windowElement);
   focusWindow(windowElement);
 }
 
@@ -314,14 +636,62 @@ document.addEventListener("click", (event) => {
   if (!startMenu.hidden && !startMenu.contains(event.target) && !startButton.contains(event.target)) {
     setStartMenuOpen(false);
   }
+  if (!document.querySelector("#clock-calendar").hidden
+    && !document.querySelector("#clock-calendar").contains(event.target)
+    && !document.querySelector("#clock-button").contains(event.target)) {
+    setCalendarOpen(false);
+  }
 });
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") setStartMenuOpen(false);
 });
 
+document.querySelector("#clock-button").addEventListener("click", () => {
+  setCalendarOpen(document.querySelector("#clock-calendar").hidden);
+});
+document.querySelector("#calendar-previous").addEventListener("click", () => {
+  calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1);
+  renderCalendar();
+});
+document.querySelector("#calendar-next").addEventListener("click", () => {
+  calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1);
+  renderCalendar();
+});
+document.querySelector("#calendar-today").addEventListener("click", () => {
+  const now = new Date();
+  calendarMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  renderCalendar();
+});
+
+const imageViewer = document.querySelector("#image-viewer");
+document.querySelector("#viewer-close").addEventListener("click", () => imageViewer.close());
+document.querySelector("#viewer-wallpaper").addEventListener("click", async (event) => {
+  const status = document.querySelector("#gallery-status");
+  try {
+    await saveWallpaperChoice(event.currentTarget.dataset.wallpaper);
+    if (status) status.textContent = `${currentViewerImage.name}: wallpaper aplicado`;
+    imageViewer.close();
+  } catch (error) {
+    console.error("Não foi possível aplicar a imagem como wallpaper.", error);
+    if (status) status.textContent = error.message;
+  }
+});
+imageViewer.addEventListener("click", (event) => {
+  if (event.target === imageViewer) imageViewer.close();
+});
+imageViewer.addEventListener("close", () => {
+  document.querySelector("#viewer-image").removeAttribute("src");
+  currentViewerImage = undefined;
+});
+
 updateClock();
-window.setInterval(updateClock, 15_000);
+window.setInterval(updateClock, 1_000);
+restoreWallpaperChoice();
+window.addEventListener("pagehide", () => {
+  imageObjectUrls.forEach((url) => URL.revokeObjectURL(url));
+  imageObjectUrls.clear();
+});
 
 const revealElements = document.querySelectorAll("[data-reveal]");
 
@@ -442,18 +812,146 @@ const backgroundAudio = document.querySelector("#background-audio");
 const musicPlay = document.querySelector("#music-play");
 const musicMute = document.querySelector("#music-mute");
 const musicStatus = document.querySelector("#music-status");
+const musicTitle = document.querySelector(".music-title");
+const musicLibraryToggle = document.querySelector("#music-library-toggle");
+const musicLibrary = document.querySelector("#music-library");
+const musicLibraryCount = document.querySelector("#music-library-count");
+const musicLibraryStatus = document.querySelector("#music-library-status");
+const musicTrackList = document.querySelector("#music-track-list");
+const musicUpload = document.querySelector("#music-upload");
 const audioFileUrl = new URL(backgroundAudio.querySelector("source").getAttribute("src"), document.baseURI);
+let selectedMusicTrack = "default";
+let activeMusicObjectUrl = "";
+let musicTracks = [];
 
 function getAudioErrorMessage() {
-  if (window.location.protocol === "file:") {
+  if (selectedMusicTrack === "default" && window.location.protocol === "file:") {
     return "abra com Live Server";
   }
 
-  if (audioFileUrl.protocol === "file:" && window.location.protocol !== "file:") {
+  if (selectedMusicTrack === "default" && audioFileUrl.protocol === "file:" && window.location.protocol !== "file:") {
     return "use o site por localhost";
   }
 
-  return "verifique assets/musica-fundo.mp3";
+  return "não foi possível reproduzir esta faixa";
+}
+
+function setMusicLibraryOpen(isOpen) {
+  musicLibrary.hidden = !isOpen;
+  musicLibraryToggle.setAttribute("aria-expanded", String(isOpen));
+  musicLibraryToggle.setAttribute("aria-label", isOpen ? "Fechar biblioteca de músicas" : "Abrir biblioteca de músicas");
+}
+
+async function selectMusicTrack(track, shouldSave = true) {
+  backgroundAudio.pause();
+  if (activeMusicObjectUrl) URL.revokeObjectURL(activeMusicObjectUrl);
+  activeMusicObjectUrl = "";
+
+  if (track.id === "default") {
+    backgroundAudio.removeAttribute("src");
+    selectedMusicTrack = "default";
+    musicTitle.textContent = "som de fundo";
+  } else {
+    activeMusicObjectUrl = URL.createObjectURL(track.blob);
+    backgroundAudio.src = activeMusicObjectUrl;
+    selectedMusicTrack = track.id;
+    musicTitle.textContent = track.name;
+  }
+
+  backgroundAudio.load();
+  musicStatus.textContent = track.id === "default" && window.location.protocol === "file:"
+    ? getAudioErrorMessage()
+    : "faixa selecionada";
+  updateMusicButtons();
+  if (shouldSave) {
+    try {
+      await mediaStoreRequest("settings", "readwrite", (store) => store.put({ key: "music-track", value: selectedMusicTrack }));
+    } catch (error) {
+      console.error("Não foi possível salvar a faixa selecionada.", error);
+      musicLibraryStatus.textContent = error.message;
+    }
+  }
+  renderMusicTrackList();
+}
+
+function renderMusicTrackList(tracks = musicTracks) {
+  const defaultTrack = document.createElement("button");
+  defaultTrack.type = "button";
+  defaultTrack.className = "music-track";
+  defaultTrack.setAttribute("aria-pressed", String(selectedMusicTrack === "default"));
+  defaultTrack.innerHTML = '<span class="music-track-glyph" aria-hidden="true">♫</span><span class="music-track-name">som de fundo</span><span class="music-track-source">padrão</span>';
+  defaultTrack.addEventListener("click", () => {
+    void selectMusicTrack({ id: "default" });
+    musicLibraryStatus.textContent = "faixa selecionada";
+  });
+
+  const trackItems = tracks.map((track) => {
+    const item = document.createElement("div");
+    item.className = "music-track-row";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "music-track";
+    button.setAttribute("aria-pressed", String(selectedMusicTrack === track.id));
+    const glyph = document.createElement("span");
+    glyph.className = "music-track-glyph";
+    glyph.setAttribute("aria-hidden", "true");
+    glyph.textContent = "♫";
+    const name = document.createElement("span");
+    name.className = "music-track-name";
+    name.textContent = track.name;
+    const source = document.createElement("span");
+    source.className = "music-track-source";
+    source.textContent = "importada";
+    button.append(glyph, name, source);
+    button.addEventListener("click", () => {
+      void selectMusicTrack(track);
+      musicLibraryStatus.textContent = "faixa selecionada";
+    });
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "music-track-remove";
+    remove.setAttribute("aria-label", `Remover ${track.name} da biblioteca`);
+    remove.textContent = "×";
+    remove.addEventListener("click", async () => {
+      try {
+        if (selectedMusicTrack === track.id) await selectMusicTrack({ id: "default" });
+        await mediaStoreRequest("audio", "readwrite", (store) => store.delete(track.id));
+        await refreshMusicLibrary();
+        musicLibraryStatus.textContent = "faixa removida da biblioteca";
+      } catch (error) {
+        console.error("Não foi possível remover a faixa.", error);
+        musicLibraryStatus.textContent = error.message;
+      }
+    });
+    item.append(button, remove);
+    return item;
+  });
+
+  musicTrackList.replaceChildren(defaultTrack, ...trackItems);
+  musicLibraryCount.textContent = `${tracks.length + 1} ${tracks.length === 0 ? "faixa" : "faixas"}`;
+}
+
+async function refreshMusicLibrary() {
+  musicTracks = await mediaStoreRequest("audio", "readonly", (store) => store.getAll());
+  renderMusicTrackList();
+  return musicTracks;
+}
+
+async function initializeMusicLibrary() {
+  try {
+    const tracks = await refreshMusicLibrary();
+    const savedTrack = await mediaStoreRequest("settings", "readonly", (store) => store.get("music-track"));
+    if (savedTrack?.value === "default") return;
+    const selectedTrack = tracks.find((track) => track.id === savedTrack?.value);
+    if (selectedTrack) await selectMusicTrack(selectedTrack, false);
+    else if (savedTrack?.value) {
+      await mediaStoreRequest("settings", "readwrite", (store) => store.put({ key: "music-track", value: "default" }));
+    }
+  } catch (error) {
+    console.error("Não foi possível carregar a biblioteca de músicas.", error);
+    musicLibraryStatus.textContent = error.message;
+  }
 }
 
 function updateMusicButtons() {
@@ -473,7 +971,7 @@ musicPlay.addEventListener("click", async () => {
     return;
   }
 
-  if (window.location.protocol === "file:") {
+  if (selectedMusicTrack === "default" && window.location.protocol === "file:") {
     musicStatus.textContent = getAudioErrorMessage();
     return;
   }
@@ -494,6 +992,44 @@ musicMute.addEventListener("click", () => {
   updateMusicButtons();
 });
 
+musicLibraryToggle.addEventListener("click", () => {
+  setMusicLibraryOpen(musicLibrary.hidden);
+});
+
+musicUpload.addEventListener("change", async () => {
+  const files = [...musicUpload.files];
+  if (!files.length) return;
+  const invalidFiles = files.filter((file) => (
+    !file.type.startsWith("audio/")
+    && !/\.(mp3|m4a|aac|wav|ogg|oga|opus|flac|webm)$/i.test(file.name)
+  ));
+  if (invalidFiles.length) {
+    musicLibraryStatus.textContent = "selecione apenas arquivos de áudio";
+    musicUpload.value = "";
+    return;
+  }
+
+  try {
+    const importedTracks = files.map((file) => ({
+      id: crypto.randomUUID(),
+      name: file.name,
+      blob: file,
+      addedAt: Date.now(),
+    }));
+    await mediaStoreRequest("audio", "readwrite", (store) => {
+      importedTracks.forEach((track) => store.put(track));
+      return store.count();
+    });
+    await refreshMusicLibrary();
+    musicLibraryStatus.textContent = `${files.length} música(s) adicionada(s)`;
+  } catch (error) {
+    console.error("Não foi possível importar as músicas.", error);
+    musicLibraryStatus.textContent = error.message;
+  } finally {
+    musicUpload.value = "";
+  }
+});
+
 backgroundAudio.addEventListener("play", updateMusicButtons);
 backgroundAudio.addEventListener("pause", updateMusicButtons);
 backgroundAudio.addEventListener("ended", updateMusicButtons);
@@ -505,6 +1041,8 @@ if (window.location.protocol === "file:") {
   musicStatus.textContent = "abra com Live Server";
 }
 updateMusicButtons();
+renderMusicTrackList();
+initializeMusicLibrary();
 
 const contactLinks = {
   github: "https://github.com/andrezinhogamer11",
